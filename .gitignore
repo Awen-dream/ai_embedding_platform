@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Go
+bin/
+dist/
+coverage.out
+
+# Node
+node_modules/
+
+# Env
+.env
+.env.*
+
+# Build
+tmp/
+out/
+*.log

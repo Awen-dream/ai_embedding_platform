@@ -1,0 +1,227 @@
+openapi: 3.1.0
+info:
+  title: AI Embedding Platform API
+  version: 0.1.0
+  summary: Standardized embedding, batch task, and retrieval APIs for the platform.
+servers:
+  - url: https://api.embedding-platform.local
+tags:
+  - name: embeddings
+  - name: tasks
+  - name: retrieval
+paths:
+  /v1/embeddings:
+    post:
+      tags: [embeddings]
+      summary: Generate embeddings for one or more inputs
+      operationId: createEmbeddings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmbeddingRequest'
+      responses:
+        '200':
+          description: Embeddings generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmbeddingResponse'
+  /v1/tasks/embedding:
+    post:
+      tags: [tasks]
+      summary: Submit an asynchronous embedding job
+      operationId: createEmbeddingTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmbeddingTaskRequest'
+      responses:
+        '202':
+          description: Task accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskAcceptedResponse'
+  /v1/tasks/{taskId}:
+    get:
+      tags: [tasks]
+      summary: Get task status
+      operationId: getTask
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: Task status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskStatusResponse'
+  /v1/retrieval/search:
+    post:
+      tags: [retrieval]
+      summary: Search vectors by query text or vector
+      operationId: searchRetrieval
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetrievalRequest'
+      responses:
+        '200':
+          description: Search result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetrievalResponse'
+components:
+  parameters:
+    TaskId:
+      name: taskId
+      in: path
+      required: true
+      schema:
+        type: string
+  schemas:
+    EmbeddingRequest:
+      type: object
+      required: [tenant_id, model, modality, input]
+      properties:
+        tenant_id:
+          type: string
+        model:
+          type: string
+        modality:
+          type: string
+          enum: [text, image, audio]
+        input:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        dimension:
+          type: integer
+        encoding_format:
+          type: string
+          enum: [float, base64]
+        metadata:
+          type: object
+          additionalProperties: true
+    EmbeddingResponse:
+      type: object
+      required: [request_id, model, data]
+      properties:
+        request_id:
+          type: string
+        model:
+          type: string
+        dimension:
+          type: integer
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmbeddingItem'
+        usage:
+          $ref: '#/components/schemas/Usage'
+    EmbeddingItem:
+      type: object
+      required: [index, embedding]
+      properties:
+        index:
+          type: integer
+        embedding:
+          type: array
+          items:
+            type: number
+            format: float
+    Usage:
+      type: object
+      properties:
+        input_tokens:
+          type: integer
+        cache_hit:
+          type: boolean
+    EmbeddingTaskRequest:
+      type: object
+      required: [tenant_id, model, source]
+      properties:
+        tenant_id:
+          type: string
+        model:
+          type: string
+        source:
+          type: object
+          additionalProperties: true
+        callback_url:
+          type: string
+          format: uri
+    TaskAcceptedResponse:
+      type: object
+      required: [task_id, status]
+      properties:
+        task_id:
+          type: string
+        status:
+          type: string
+          enum: [accepted, queued]
+    TaskStatusResponse:
+      type: object
+      required: [task_id, status]
+      properties:
+        task_id:
+          type: string
+        status:
+          type: string
+          enum: [accepted, queued, running, succeeded, failed, cancelled]
+        progress:
+          type: number
+          format: float
+        result_location:
+          type: string
+    RetrievalRequest:
+      type: object
+      required: [tenant_id, index_id, top_k]
+      properties:
+        tenant_id:
+          type: string
+        index_id:
+          type: string
+        query:
+          type: string
+        vector:
+          type: array
+          items:
+            type: number
+            format: float
+        filters:
+          type: object
+          additionalProperties: true
+        top_k:
+          type: integer
+    RetrievalResponse:
+      type: object
+      required: [request_id, hits]
+      properties:
+        request_id:
+          type: string
+        hits:
+          type: array
+          items:
+            $ref: '#/components/schemas/RetrievalHit'
+    RetrievalHit:
+      type: object
+      required: [id, score]
+      properties:
+        id:
+          type: string
+        score:
+          type: number
+          format: float
+        metadata:
+          type: object
+          additionalProperties: true
