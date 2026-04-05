@@ -1,3 +1,17 @@
 # gateway
 
-统一入口服务，负责鉴权、限流、路由、版本管理、协议适配与观测上下文注入。
+统一入口服务，负责鉴权、路由转发、版本管理和观测上下文注入。
+
+## 当前骨架能力
+
+- `GET /healthz`
+- `GET /readyz`
+- `POST /v1/embeddings`
+- `POST /v1/tasks/embedding`
+- `GET /v1/tasks/{task_id}`
+
+## 本地运行
+
+```bash
+make run-gateway
+```

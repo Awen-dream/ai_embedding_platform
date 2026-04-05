@@ -1,0 +1,19 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+import os
+
+
+@dataclass(frozen=True)
+class VectorStoreProxySettings:
+    service_name: str = "vector-store-proxy"
+    host: str = "0.0.0.0"
+    port: int = 8083
+
+
+def load_settings() -> VectorStoreProxySettings:
+    return VectorStoreProxySettings(
+        host=os.getenv("APP_HOST", "0.0.0.0"),
+        port=int(os.getenv("APP_PORT", "8083")),
+    )
+
