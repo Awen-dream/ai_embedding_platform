@@ -4,11 +4,12 @@ from threading import Lock
 from typing import Optional
 
 from embedding_platform_common.errors import PlatformError
+from embedding_task_orchestrator.internal.repository import TaskRepository
 from embedding_task_orchestrator.models import TaskRecord, utc_now
 from embedding_task_orchestrator.state_machine import can_transition, public_status
 
 
-class TaskStore:
+class InMemoryTaskRepository(TaskRepository):
     def __init__(self) -> None:
         self._tasks: dict[str, TaskRecord] = {}
         self._lock = Lock()
@@ -74,3 +75,6 @@ class TaskStore:
     def public_view(self, task_id: str) -> TaskRecord:
         task = self.get(task_id)
         return task.model_copy(update={"status": public_status(task.status)})
+
+
+TaskStore = InMemoryTaskRepository

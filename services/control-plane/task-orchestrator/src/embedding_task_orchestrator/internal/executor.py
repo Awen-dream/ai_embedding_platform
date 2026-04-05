@@ -9,7 +9,7 @@ import httpx
 from embedding_platform_common.errors import PlatformError
 from embedding_platform_common.ids import generate_id
 from embedding_platform_common.observability import log_event
-from embedding_task_orchestrator.internal.store import TaskStore
+from embedding_task_orchestrator.internal.repository import TaskRepository
 from embedding_task_orchestrator.models import TaskRecord
 
 
@@ -106,7 +106,7 @@ async def execute_embedding_task(
     *,
     request_id: str,
     task: TaskRecord,
-    store: TaskStore,
+    store: TaskRepository,
     settings: Any,
     logger: Any,
 ) -> None:

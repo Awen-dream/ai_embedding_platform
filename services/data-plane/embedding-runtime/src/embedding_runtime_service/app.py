@@ -10,16 +10,18 @@ from embedding_platform_common.errors import PlatformError, error_payload
 from embedding_platform_common.ids import generate_id
 from embedding_platform_common.observability import configure_logging, log_event
 from embedding_runtime_service.config import load_settings
-from embedding_runtime_service.domain.encoder import estimate_input_tokens, stable_embedding
+from embedding_runtime_service.domain.providers import build_embedding_provider
 from embedding_runtime_service.models import EmbeddingItem, EmbeddingRequest, EmbeddingResponse, Usage
 
 
 def create_app() -> FastAPI:
     settings = load_settings()
     logger = configure_logging(settings.service_name)
+    provider = build_embedding_provider(settings)
     app = FastAPI(title="Embedding Runtime Service", version="0.1.0")
     app.state.settings = settings
     app.state.logger = logger
+    app.state.provider = provider
 
     @app.middleware("http")
     async def request_context(request: Request, call_next: Any) -> JSONResponse:
@@ -81,9 +83,7 @@ def create_app() -> FastAPI:
                 status_code=400,
             )
 
-        items: list[EmbeddingItem] = []
-        input_tokens = 0
-        for index, value in enumerate(values):
+        for value in values:
             if not value.strip():
                 raise PlatformError(
                     code="EMB-VAL-400001",
@@ -91,8 +91,17 @@ def create_app() -> FastAPI:
                     error_type="validation_error",
                     status_code=400,
                 )
-            items.append(EmbeddingItem(index=index, embedding=stable_embedding(value, dimension)))
-            input_tokens += estimate_input_tokens(value)
+
+        batch = await provider.embed(
+            texts=values,
+            model=body.model,
+            dimension=dimension,
+            encoding_format=body.encoding_format,
+            metadata=body.metadata,
+            request_id=request.state.request_id,
+            tenant_id=body.tenant_id,
+        )
+        items = [EmbeddingItem(index=index, embedding=vector) for index, vector in enumerate(batch.vectors)]
 
         log_event(
             logger,
@@ -102,13 +111,14 @@ def create_app() -> FastAPI:
             model=body.model,
             batch_size=len(values),
             dimension=dimension,
+            provider=batch.provider,
         )
         return EmbeddingResponse(
             request_id=request.state.request_id,
             model=body.model,
             dimension=dimension,
             data=items,
-            usage=Usage(input_tokens=input_tokens, cache_hit=False),
+            usage=Usage(input_tokens=batch.input_tokens, cache_hit=False),
         )
 
     return app
@@ -122,4 +132,3 @@ def main() -> None:
         host=settings.host,
         port=settings.port,
     )
-

@@ -16,13 +16,13 @@ from embedding_vector_store_proxy.models import (
     UpsertVectorsRequest,
     UpsertVectorsResponse,
 )
-from embedding_vector_store_proxy.store import InMemoryVectorStore
+from embedding_vector_store_proxy.store_factory import create_vector_store
 
 
 def create_app() -> FastAPI:
     settings = load_settings()
     logger = configure_logging(settings.service_name)
-    store = InMemoryVectorStore()
+    store = create_vector_store(settings)
     app = FastAPI(title="Embedding Vector Store Proxy", version="0.1.0")
     app.state.store = store
     app.state.logger = logger
@@ -108,4 +108,3 @@ def main() -> None:
         host=settings.host,
         port=settings.port,
     )
-

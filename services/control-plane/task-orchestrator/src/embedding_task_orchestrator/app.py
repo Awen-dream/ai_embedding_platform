@@ -11,8 +11,10 @@ from embedding_platform_common.errors import PlatformError, error_payload
 from embedding_platform_common.ids import generate_id
 from embedding_platform_common.observability import configure_logging, log_event
 from embedding_task_orchestrator.config import load_settings
-from embedding_task_orchestrator.internal.queue import InMemoryTaskQueue, TaskQueueMessage
-from embedding_task_orchestrator.internal.store import TaskStore
+from embedding_task_orchestrator.internal.queue import TaskQueueMessage
+from embedding_task_orchestrator.internal.queue_factory import create_task_queue
+from embedding_task_orchestrator.internal.repository_factory import create_task_repository
+from embedding_task_orchestrator.internal.repository import TaskRepository
 from embedding_task_orchestrator.internal.worker import run_worker_loop
 from embedding_task_orchestrator.models import (
     EmbeddingTaskRequest,
@@ -26,8 +28,8 @@ from embedding_task_orchestrator.models import (
 def create_app() -> FastAPI:
     settings = load_settings()
     logger = configure_logging(settings.service_name)
-    store = TaskStore()
-    queue = InMemoryTaskQueue()
+    store: TaskRepository = create_task_repository(settings)
+    queue = create_task_queue(settings)
 
     app = FastAPI(title="Embedding Task Orchestrator", version="0.1.0")
     app.state.store = store

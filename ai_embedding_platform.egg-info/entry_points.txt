@@ -1,0 +1,7 @@
+[console_scripts]
+embedding-gateway = embedding_gateway.app:main
+embedding-preprocess = embedding_preprocess_service.app:main
+embedding-retrieval = embedding_retrieval_service.app:main
+embedding-runtime = embedding_runtime_service.app:main
+embedding-task-orchestrator = embedding_task_orchestrator.app:main
+embedding-vector-store-proxy = embedding_vector_store_proxy.app:main

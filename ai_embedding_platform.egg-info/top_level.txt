@@ -1,0 +1,7 @@
+embedding_gateway
+embedding_platform_common
+embedding_preprocess_service
+embedding_retrieval_service
+embedding_runtime_service
+embedding_task_orchestrator
+embedding_vector_store_proxy

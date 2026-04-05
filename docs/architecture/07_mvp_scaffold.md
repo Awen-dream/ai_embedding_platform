@@ -49,6 +49,8 @@
 - 内存态任务队列
 - 后台 worker 消费骨架
 - 基础重试和死信骨架
+- 仓储接口与持久化模型定义
+- PostgreSQL 建表 SQL 与 repository 占位实现
 - 对 `source.type=inline` 的真实任务执行
 - 调用 `preprocess` 生成 chunk
 - 调用 `embedding-runtime` 批量生成向量
@@ -58,6 +60,7 @@
 当前说明：
 
 - 当前版本使用内存存储和内存队列 worker
+- 任务记录已经抽象出仓储边界和持久化模型
 - 后续阶段会替换为 PostgreSQL + Kafka 或等价组件
 
 ### `embedding-runtime`

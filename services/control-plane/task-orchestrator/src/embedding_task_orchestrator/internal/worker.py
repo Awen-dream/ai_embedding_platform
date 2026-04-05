@@ -6,15 +6,15 @@ from typing import Any
 from embedding_platform_common.errors import PlatformError
 from embedding_platform_common.observability import log_event
 from embedding_task_orchestrator.internal.executor import execute_embedding_task
-from embedding_task_orchestrator.internal.queue import DeadLetterRecord, InMemoryTaskQueue, TaskQueueMessage
-from embedding_task_orchestrator.internal.store import TaskStore
+from embedding_task_orchestrator.internal.queue import DeadLetterRecord, TaskQueue, TaskQueueMessage
+from embedding_task_orchestrator.internal.repository import TaskRepository
 from embedding_task_orchestrator.state_machine import TERMINAL_STATES
 
 
 async def run_worker_loop(
     *,
-    queue: InMemoryTaskQueue,
-    store: TaskStore,
+    queue: TaskQueue,
+    store: TaskRepository,
     settings: Any,
     logger: Any,
 ) -> None:
@@ -29,14 +29,14 @@ async def run_worker_loop(
                 logger=logger,
             )
         finally:
-            queue.task_done()
+            queue.task_done(message)
 
 
 async def process_queue_message(
     *,
     message: TaskQueueMessage,
-    queue: InMemoryTaskQueue,
-    store: TaskStore,
+    queue: TaskQueue,
+    store: TaskRepository,
     settings: Any,
     logger: Any,
 ) -> None:
@@ -90,8 +90,8 @@ async def process_queue_message(
 async def _handle_execution_error(
     *,
     message: TaskQueueMessage,
-    queue: InMemoryTaskQueue,
-    store: TaskStore,
+    queue: TaskQueue,
+    store: TaskRepository,
     settings: Any,
     logger: Any,
     error: PlatformError,

@@ -9,6 +9,9 @@
 - `POST /v1/embeddings`
 - `POST /v1/tasks/embedding`
 - `GET /v1/tasks/{task_id}`
+- 配置化租户凭证校验
+- 每租户限流
+- 轻量下游熔断保护
 
 ## 本地运行
 

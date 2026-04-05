@@ -6,7 +6,7 @@
 
 - `POST /internal/vectors/upsert`
 - `POST /internal/search`
-- 内存态索引与相似度搜索
+- SQLite 持久化索引与相似度搜索
 - 维度校验和 metadata 过滤
 
 ## 本地运行
