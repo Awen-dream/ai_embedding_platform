@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -31,15 +32,9 @@ def create_app() -> FastAPI:
     store: TaskRepository = create_task_repository(settings)
     queue = create_task_queue(settings)
 
-    app = FastAPI(title="Embedding Task Orchestrator", version="0.1.0")
-    app.state.store = store
-    app.state.queue = queue
-    app.state.logger = logger
-    app.state.settings = settings
-    app.state.worker_task = None
-
-    @app.on_event("startup")
-    async def startup_worker() -> None:
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> Any:
+        await queue.startup()
         app.state.worker_task = asyncio.create_task(
             run_worker_loop(
                 queue=queue,
@@ -48,16 +43,24 @@ def create_app() -> FastAPI:
                 logger=logger,
             )
         )
+        try:
+            yield
+        finally:
+            worker_task = app.state.worker_task
+            if worker_task is not None:
+                worker_task.cancel()
+                try:
+                    await worker_task
+                except asyncio.CancelledError:
+                    pass
+            await queue.shutdown()
 
-    @app.on_event("shutdown")
-    async def shutdown_worker() -> None:
-        worker_task = app.state.worker_task
-        if worker_task is not None:
-            worker_task.cancel()
-            try:
-                await worker_task
-            except asyncio.CancelledError:
-                pass
+    app = FastAPI(title="Embedding Task Orchestrator", version="0.1.0", lifespan=lifespan)
+    app.state.store = store
+    app.state.queue = queue
+    app.state.logger = logger
+    app.state.settings = settings
+    app.state.worker_task = None
 
     @app.middleware("http")
     async def request_context(request: Request, call_next: Any) -> JSONResponse:
@@ -139,7 +142,7 @@ def create_app() -> FastAPI:
             request_id=request.state.request_id,
             task_id=task.task_id,
             attempt=1,
-            queue_depth=queue.qsize(),
+            queue_depth=await queue.qsize(),
         )
         return TaskAcceptedResponse(task_id=task.task_id, status="queued")
 
@@ -160,9 +163,14 @@ def create_app() -> FastAPI:
     @app.get("/internal/queue/stats", response_model=QueueStatsResponse)
     async def get_queue_stats() -> QueueStatsResponse:
         worker_running = app.state.worker_task is not None and not app.state.worker_task.done()
+        backend_info = queue.backend_info()
         return QueueStatsResponse(
-            queue_depth=queue.qsize(),
-            dead_letter_count=queue.dead_letter_count(),
+            queue_backend=backend_info.backend,
+            delivery_semantics=backend_info.delivery_semantics,
+            queue_depth_mode=backend_info.queue_depth_mode,
+            dead_letter_count_mode=backend_info.dead_letter_count_mode,
+            queue_depth=await queue.qsize(),
+            dead_letter_count=await queue.dead_letter_count(),
             worker_running=worker_running,
         )
 

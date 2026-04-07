@@ -51,8 +51,8 @@ class TaskWorkerTest(unittest.TestCase):
         result = store.get(task.task_id)
         self.assertEqual(result.status, "queued")
         self.assertEqual(result.attempt_count, 1)
-        self.assertEqual(queue.qsize(), 1)
-        self.assertEqual(queue.dead_letter_count(), 0)
+        self.assertEqual(asyncio.run(queue.qsize()), 1)
+        self.assertEqual(asyncio.run(queue.dead_letter_count()), 0)
 
     def test_non_retryable_error_moves_task_to_dead_letter(self) -> None:
         store = TaskStore()
@@ -93,4 +93,4 @@ class TaskWorkerTest(unittest.TestCase):
         result = store.get(task.task_id)
         self.assertEqual(result.status, "failed")
         self.assertEqual(result.error_code, "TASK-VAL-400001")
-        self.assertEqual(queue.dead_letter_count(), 1)
+        self.assertEqual(asyncio.run(queue.dead_letter_count()), 1)

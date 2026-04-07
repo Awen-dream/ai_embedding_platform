@@ -29,7 +29,7 @@ async def run_worker_loop(
                 logger=logger,
             )
         finally:
-            queue.task_done(message)
+            await queue.task_done(message)
 
 
 async def process_queue_message(
@@ -148,7 +148,7 @@ async def _handle_execution_error(
         error_code=error.code,
         error_message=error.message,
     )
-    queue.add_dead_letter(
+    await queue.add_dead_letter(
         DeadLetterRecord(
             task_id=task.task_id,
             request_id=message.request_id,

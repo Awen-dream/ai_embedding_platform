@@ -47,6 +47,8 @@
 - 错误码规范：[docs/api/error_codes.md](/Users/liuwenzhong/PycharmProjects/ai_embedding_platform/docs/api/error_codes.md)
 - 事件模型规范：[docs/api/event_model.md](/Users/liuwenzhong/PycharmProjects/ai_embedding_platform/docs/api/event_model.md)
 - MVP工程骨架：[docs/architecture/07_mvp_scaffold.md](/Users/liuwenzhong/PycharmProjects/ai_embedding_platform/docs/architecture/07_mvp_scaffold.md)
+- 队列后端规范：[docs/architecture/08_queue_backend_spec.md](/Users/liuwenzhong/PycharmProjects/ai_embedding_platform/docs/architecture/08_queue_backend_spec.md)
+- Redis Stream 本地联调 Runbook：[docs/runbooks/redis_stream_local_smoke.md](/Users/liuwenzhong/PycharmProjects/ai_embedding_platform/docs/runbooks/redis_stream_local_smoke.md)
 
 ## 当前阶段
 
@@ -57,6 +59,8 @@
 - 标准化目录骨架初始化
 - OpenAPI初始契约草案
 - `gateway`、`task-orchestrator`、`embedding-runtime`、`preprocess`、`vector-store-proxy`、`retrieval` 六个 MVP 服务骨架
+- `task-orchestrator` 的 `inmemory` / `sqlite` / `postgres` 仓储边界与 `inmemory` / `sqlite` 队列骨架
+- `task-orchestrator` 的 `redis_stream` / `kafka` 队列后端规范与实现骨架
 - 统一的 Python monorepo 启动配置、共享错误处理和本地运行脚本
 
 ## 本地启动
@@ -65,6 +69,19 @@
 
 ```bash
 pip install -e .
+```
+
+如果要启用 PostgreSQL 仓储，再补安装：
+
+```bash
+pip install -e .[postgres]
+```
+
+如果要启用 broker 队列后端，可按需安装：
+
+```bash
+pip install -e .[queue-redis]
+pip install -e .[queue-kafka]
 ```
 
 然后分别启动：
@@ -78,9 +95,27 @@ make run-retrieval
 make run-gateway
 ```
 
+如果要联调 broker 队列，建议先起本地中间件：
+
+```bash
+make broker-up
+make run-task-orchestrator-redis
+make smoke-queue-stats
+make smoke-redis-task-flow
+make smoke-redis-e2e
+```
+
+Kafka 本地联调可使用：
+
+```bash
+make broker-up
+make run-task-orchestrator-kafka
+make smoke-kafka-topics
+```
+
 ## 后续建议优先落地
 
 1. 接入真实Embedding模型并替换伪向量生成器
-2. 将 `task-orchestrator` 的内存队列替换为 Kafka / Redis Stream，并引入持久化任务表
+2. 接入真实 Redis 或 Kafka 实例，完成 broker 级联调和运维脚本
 3. 为 `preprocess` 补去重、脱敏和更丰富的切块策略
 4. 增加 Dockerfile 和 Kubernetes 基础部署清单

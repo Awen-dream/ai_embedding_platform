@@ -16,17 +16,19 @@ class SqliteTaskQueueTest(unittest.TestCase):
             self.assertEqual(claimed.task_id, "task-1")
             self.assertIsNotNone(claimed.queue_id)
 
-            queue.add_dead_letter(
-                DeadLetterRecord(
-                    task_id="task-1",
-                    request_id="req-1",
-                    attempt=1,
-                    error_code="TASK-FAILED",
-                    error_message="boom",
+            asyncio.run(
+                queue.add_dead_letter(
+                    DeadLetterRecord(
+                        task_id="task-1",
+                        request_id="req-1",
+                        attempt=1,
+                        error_code="TASK-FAILED",
+                        error_message="boom",
+                    )
                 )
             )
-            queue.task_done(claimed)
+            asyncio.run(queue.task_done(claimed))
 
             reloaded = SqliteTaskQueue(path=path, poll_interval_seconds=0.01)
-            self.assertEqual(reloaded.qsize(), 0)
-            self.assertEqual(reloaded.dead_letter_count(), 1)
+            self.assertEqual(asyncio.run(reloaded.qsize()), 0)
+            self.assertEqual(asyncio.run(reloaded.dead_letter_count()), 1)

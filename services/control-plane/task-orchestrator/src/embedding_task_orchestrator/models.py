@@ -50,6 +50,10 @@ class TaskRecord(BaseModel):
 
 
 class QueueStatsResponse(BaseModel):
-    queue_depth: int
-    dead_letter_count: int
-    worker_running: bool
+    queue_backend: str = Field(description="Selected queue backend name, for example sqlite, redis_stream, or kafka.")
+    delivery_semantics: str = Field(description="Broker delivery contract exposed by the queue implementation.")
+    queue_depth_mode: str = Field(description="Whether queue_depth is exact, approximate, or unsupported.")
+    dead_letter_count_mode: str = Field(description="Whether dead_letter_count is exact, approximate, or unsupported.")
+    queue_depth: int = Field(description="Current queue backlog according to the backend's reported depth mode.")
+    dead_letter_count: int = Field(description="Current dead-letter count according to the backend's reported count mode.")
+    worker_running: bool = Field(description="Whether the local worker loop is currently active in this process.")

@@ -19,6 +19,19 @@ dependencies = [
 dev = [
   "pytest>=8.0,<9.0",
 ]
+postgres = [
+  "psycopg2-binary>=2.9,<3.0",
+]
+queue-redis = [
+  "redis>=5.0,<6.0",
+]
+queue-kafka = [
+  "aiokafka>=0.10,<1.0",
+]
+queue-brokers = [
+  "redis>=5.0,<6.0",
+  "aiokafka>=0.10,<1.0",
+]
 
 [project.scripts]
 embedding-gateway = "embedding_gateway.app:main"

@@ -9,7 +9,7 @@
 - 可运行的服务目录和工程模板
 - 统一的本地启动方式
 - 可复用的共享错误处理、鉴权和日志能力
-- 五个关键服务的首版接口骨架
+- 六个关键服务的首版接口骨架
 
 ## 2. 当前已初始化的服务
 
@@ -45,12 +45,12 @@
 - `POST /internal/tasks/embedding`
 - `GET /internal/tasks/{task_id}`
 - `GET /internal/queue/stats`
-- 内存态任务存储
-- 内存态任务队列
+- `inmemory` / `sqlite` / `postgres` 任务仓储切换
+- `inmemory` / `sqlite` / `redis_stream` / `kafka` 任务队列切换
 - 后台 worker 消费骨架
 - 基础重试和死信骨架
 - 仓储接口与持久化模型定义
-- PostgreSQL 建表 SQL 与 repository 占位实现
+- PostgreSQL 建表 SQL 与真实 repository 实现
 - 对 `source.type=inline` 的真实任务执行
 - 调用 `preprocess` 生成 chunk
 - 调用 `embedding-runtime` 批量生成向量
@@ -59,9 +59,11 @@
 
 当前说明：
 
-- 当前版本使用内存存储和内存队列 worker
-- 任务记录已经抽象出仓储边界和持久化模型
-- 后续阶段会替换为 PostgreSQL + Kafka 或等价组件
+- 当前代码默认使用内存后端
+- 本地开发配置示例默认使用 SQLite 持久化任务与队列
+- PostgreSQL 仓储已经具备真实读写和状态流转能力
+- 队列后端已经具备 `Redis Stream` 和 `Kafka` 适配骨架
+- `/internal/queue/stats` 会显式返回队列统计语义是否为精确值或近似值
 
 ### `embedding-runtime`
 

@@ -1,22 +1,40 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import os
 import sqlite3
 from threading import Lock
 from time import time
-from typing import Optional, Protocol
+from typing import Any, Optional, Protocol
+
+
+@dataclass(frozen=True)
+class QueueBackendInfo:
+    """Static metadata describing a queue backend's operational semantics."""
+
+    backend: str
+    delivery_semantics: str = "at_least_once"
+    queue_depth_mode: str = "exact"
+    dead_letter_count_mode: str = "exact"
 
 
 @dataclass(frozen=True)
 class TaskQueueMessage:
-    """Queued work item consumed by the task worker loop."""
+    """Queued work item consumed by the task worker loop.
+
+    `receipt_handle` and `backend_metadata` carry broker-specific acknowledgement
+    material. This keeps the worker flow generic while allowing Kafka, Redis
+    Stream, SQLite and in-memory implementations to encode their own delivery
+    tokens.
+    """
 
     task_id: str
     request_id: str
     attempt: int = 1
     queue_id: Optional[int] = None
+    receipt_handle: Optional[str] = None
+    backend_metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -31,7 +49,29 @@ class DeadLetterRecord:
 
 
 class TaskQueue(Protocol):
-    """Queue abstraction used by the worker loop for task dispatch and dead-letter handling."""
+    """Queue abstraction used by the worker loop for task dispatch and dead-letter handling.
+
+    Contract:
+    - Delivery semantics are at-least-once.
+    - `dequeue()` returns a claimed message.
+    - `task_done()` acknowledges successful or terminal handling for that message.
+    - `add_dead_letter()` persists a terminal failure record before the original
+      message is acknowledged.
+    - `qsize()` and `dead_letter_count()` may be exact or approximate depending
+      on backend capabilities; callers should inspect `backend_info()`.
+    """
+
+    async def startup(self) -> None:
+        """Initialize network clients, broker state, and consumer registration."""
+        ...
+
+    async def shutdown(self) -> None:
+        """Release broker connections and any local resources."""
+        ...
+
+    def backend_info(self) -> QueueBackendInfo:
+        """Describe backend delivery and metric semantics."""
+        ...
 
     async def enqueue(self, message: TaskQueueMessage) -> None:
         """Enqueue a task for asynchronous processing."""
@@ -41,19 +81,19 @@ class TaskQueue(Protocol):
         """Claim the next available task, blocking until work is available."""
         ...
 
-    def task_done(self, message: TaskQueueMessage) -> None:
+    async def task_done(self, message: TaskQueueMessage) -> None:
         """Acknowledge successful handling of a claimed queue message."""
         ...
 
-    def add_dead_letter(self, record: DeadLetterRecord) -> None:
+    async def add_dead_letter(self, record: DeadLetterRecord) -> None:
         """Persist a failed message into the dead-letter store."""
         ...
 
-    def qsize(self) -> int:
+    async def qsize(self) -> int:
         """Return the approximate count of pending queue messages."""
         ...
 
-    def dead_letter_count(self) -> int:
+    async def dead_letter_count(self) -> int:
         """Return the total count of dead-lettered messages."""
         ...
 
@@ -65,6 +105,15 @@ class InMemoryTaskQueue(TaskQueue):
         self._queue: Optional[asyncio.Queue[TaskQueueMessage]] = None
         self._dead_letters: list[DeadLetterRecord] = []
 
+    async def startup(self) -> None:
+        """No-op startup hook for the in-memory backend."""
+
+    async def shutdown(self) -> None:
+        """No-op shutdown hook for the in-memory backend."""
+
+    def backend_info(self) -> QueueBackendInfo:
+        return QueueBackendInfo(backend="inmemory")
+
     async def enqueue(self, message: TaskQueueMessage) -> None:
         queue = self._ensure_queue()
         await queue.put(message)
@@ -73,19 +122,19 @@ class InMemoryTaskQueue(TaskQueue):
         queue = self._ensure_queue()
         return await queue.get()
 
-    def task_done(self, message: TaskQueueMessage) -> None:
+    async def task_done(self, message: TaskQueueMessage) -> None:
         if self._queue is not None:
             self._queue.task_done()
 
-    def add_dead_letter(self, record: DeadLetterRecord) -> None:
+    async def add_dead_letter(self, record: DeadLetterRecord) -> None:
         self._dead_letters.append(record)
 
-    def qsize(self) -> int:
+    async def qsize(self) -> int:
         if self._queue is None:
             return 0
         return self._queue.qsize()
 
-    def dead_letter_count(self) -> int:
+    async def dead_letter_count(self) -> int:
         return len(self._dead_letters)
 
     def _ensure_queue(self) -> asyncio.Queue[TaskQueueMessage]:
@@ -103,6 +152,17 @@ class SqliteTaskQueue(TaskQueue):
         self._lock = Lock()
         self._conn = self._connect(path)
         self._initialize()
+
+    async def startup(self) -> None:
+        """No-op startup hook for SQLite-backed local queue mode."""
+
+    async def shutdown(self) -> None:
+        """Close the SQLite connection on application shutdown."""
+        with self._lock:
+            self._conn.close()
+
+    def backend_info(self) -> QueueBackendInfo:
+        return QueueBackendInfo(backend="sqlite")
 
     async def enqueue(self, message: TaskQueueMessage) -> None:
         """Persist a new queue message that is ready for immediate delivery."""
@@ -124,7 +184,7 @@ class SqliteTaskQueue(TaskQueue):
                 return message
             await asyncio.sleep(self._poll_interval_seconds)
 
-    def task_done(self, message: TaskQueueMessage) -> None:
+    async def task_done(self, message: TaskQueueMessage) -> None:
         """Delete the claimed row after the worker finishes processing it."""
         if message.queue_id is None:
             return
@@ -132,7 +192,7 @@ class SqliteTaskQueue(TaskQueue):
             self._conn.execute("DELETE FROM task_queue WHERE id = ?", (message.queue_id,))
             self._conn.commit()
 
-    def add_dead_letter(self, record: DeadLetterRecord) -> None:
+    async def add_dead_letter(self, record: DeadLetterRecord) -> None:
         """Append a terminal failure record for later operational inspection."""
         with self._lock:
             self._conn.execute(
@@ -151,7 +211,7 @@ class SqliteTaskQueue(TaskQueue):
             )
             self._conn.commit()
 
-    def qsize(self) -> int:
+    async def qsize(self) -> int:
         """Count currently unclaimed queue rows."""
         with self._lock:
             row = self._conn.execute(
@@ -159,7 +219,7 @@ class SqliteTaskQueue(TaskQueue):
             ).fetchone()
         return int(row[0]) if row is not None else 0
 
-    def dead_letter_count(self) -> int:
+    async def dead_letter_count(self) -> int:
         """Count rows stored in the dead-letter table."""
         with self._lock:
             row = self._conn.execute("SELECT COUNT(*) FROM dead_letters").fetchone()

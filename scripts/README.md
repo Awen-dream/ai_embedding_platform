@@ -7,8 +7,14 @@
 - `local/run_embedding_runtime.sh`
 - `local/run_preprocess.sh`
 - `local/run_task_orchestrator.sh`
+- `local/run_task_orchestrator_redis.sh`
+- `local/run_task_orchestrator_kafka.sh`
 - `local/run_vector_store_proxy.sh`
 - `local/run_retrieval.sh`
 - `local/run_gateway.sh`
+- `local/smoke_queue_stats.sh`
+- `local/smoke_redis_streams.sh`
+- `local/smoke_kafka_topics.sh`
+- `local/smoke_redis_task_flow.sh`
 
 这些脚本会自动设置本地 `PYTHONPATH`，用于快速启动 MVP 骨架服务。
